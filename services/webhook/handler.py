@@ -3,6 +3,10 @@ import os
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
+from aws_lambda_powertools import Logger, Tracer
+from aws_lambda_powertools.utilities.typing import LambdaContext
+from aws_lambda_powertools.utilities.validation import validate_event_schema
+from aws_lambda_powertools.event_handler.api_gateway import ApiGatewayResolver, Response
 
 from shared.database.session import get_db_session
 from shared.database.models import Repository, GitAccount
@@ -20,13 +24,15 @@ from shared.github.webhook import (
 from shared.queue.sqs import SQSHandler
 from shared.queue.messages import create_push_event_message, create_setup_message
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+# Initialize Logger and Tracer
+logger = Logger()
+tracer = Tracer()
 
 class WebhookHandler:
     def __init__(self):
         self.sqs_handler = SQSHandler(os.environ['FILE_PROCESSING_QUEUE_URL'])
     
+    @tracer.capture_method
     async def process_push_event(
         self,
         payload: PushEventPayload,
@@ -63,8 +69,11 @@ class WebhookHandler:
         )
         
         # Queue message
-        return await self.sqs_handler.send_message(message)
+        message_id = await self.sqs_handler.send_message(message)
+        logger.info(f"Queued message {message_id} for repository {repo.id}")
+        return message_id
     
+    @tracer.capture_method
     async def process_create_event(
         self,
         payload: CreateEventPayload,
@@ -73,6 +82,7 @@ class WebhookHandler:
     ) -> Optional[str]:
         """Process create event (new branch/tag)"""
         if payload['ref_type'] != 'branch' or payload['ref'] != repo.branch:
+            logger.info(f"Skipping create event for {payload['ref_type']} {payload['ref']}")
             return None
             
         # Queue full repository scan for new branch
@@ -84,8 +94,11 @@ class WebhookHandler:
             branch=payload['ref']
         )
         
-        return await self.sqs_handler.send_message(message)
+        message_id = await self.sqs_handler.send_message(message)
+        logger.info(f"Queued setup message {message_id} for repository {repo.id}")
+        return message_id
     
+    @tracer.capture_method
     async def handle_webhook(
         self,
         event_type: str,
@@ -97,19 +110,21 @@ class WebhookHandler:
         """Handle webhook event"""
         # Verify webhook signature
         if not verify_signature(payload, signature, repo.webhook_secret):
-            return {
-                'statusCode': 401,
-                'body': json.dumps({'error': 'Invalid webhook signature'})
-            }
+            logger.warning(f"Invalid webhook signature for repository {repo.id}")
+            return Response(
+                status_code=401,
+                body={"error": "Invalid webhook signature"}
+            ).dict()
         
         # Parse payload
         try:
             payload_dict = json.loads(payload)
         except json.JSONDecodeError:
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': 'Invalid JSON payload'})
-            }
+            logger.error(f"Invalid JSON payload for repository {repo.id}")
+            return Response(
+                status_code=400,
+                body={"error": "Invalid JSON payload"}
+            ).dict()
          
         try:
             message_id = None
@@ -127,49 +142,65 @@ class WebhookHandler:
                     repo,
                     account
                 )
-            # Add other event types as needed
             
-            return {
-                'statusCode': 200,
-                'body': json.dumps({
-                    'status': 'success',
-                    'message_id': message_id
-                })
-            }
+            return Response(
+                status_code=200,
+                body={
+                    "status": "success",
+                    "message_id": message_id
+                }
+            ).dict()
             
         except Exception as e:
-            logger.error(f"Error processing webhook: {str(e)}", exc_info=True)
-            return {
-                'statusCode': 500,
-                'body': json.dumps({'error': 'Internal server error'})
-            }
+            logger.exception(f"Error processing webhook for repository {repo.id}")
+            return Response(
+                status_code=500,
+                body={"error": "Internal server error"}
+            ).dict()
 
-async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+@logger.inject_lambda_context
+@tracer.capture_lambda_handler
+async def handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, Any]:
     """Lambda handler function"""
     try:
         # Extract repository ID from path parameters
-        repo_id = event['pathParameters']['repo_id']
+        repo_id = event.get('pathParameters', {}).get('repo_id')
+        if not repo_id:
+            logger.error("Missing repository ID in path parameters")
+            return Response(
+                status_code=400,
+                body={"error": "Missing repository ID"}
+            ).dict()
         
         # Get webhook details
-        signature = event['headers'].get('X-Hub-Signature-256', '')
-        event_type = event['headers'].get('X-GitHub-Event', '')
-        payload = event['body'].encode()
+        signature = event.get('headers', {}).get('X-Hub-Signature-256', '')
+        event_type = event.get('headers', {}).get('X-GitHub-Event', '')
+        payload = event.get('body', '').encode()
+        
+        if not signature or not event_type:
+            logger.error(f"Missing required headers for repository {repo_id}")
+            return Response(
+                status_code=400,
+                body={"error": "Missing required headers"}
+            ).dict()
         
         # Get repository and account details
         async with get_db_session() as session:
             repo = await session.get(Repository, repo_id)
             if not repo or not repo.is_active:
-                return {
-                    'statusCode': 404,
-                    'body': json.dumps({'error': 'Repository not found'})
-                }
+                logger.warning(f"Repository {repo_id} not found or inactive")
+                return Response(
+                    status_code=404,
+                    body={"error": "Repository not found"}
+                ).dict()
             
             account = await session.get(GitAccount, repo.git_account_id)
             if not account or not account.is_active:
-                return {
-                    'statusCode': 404,
-                    'body': json.dumps({'error': 'Git account not found'})
-                }
+                logger.warning(f"Git account {repo.git_account_id} not found or inactive")
+                return Response(
+                    status_code=404,
+                    body={"error": "Git account not found"}
+                ).dict()
             
             # Process webhook
             webhook_handler = WebhookHandler()
@@ -182,8 +213,8 @@ async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             )
             
     except Exception as e:
-        logger.error(f"Error in webhook handler: {str(e)}", exc_info=True)
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': 'Internal server error'})
-        }
+        logger.exception("Unhandled error in webhook handler")
+        return Response(
+            status_code=500,
+            body={"error": "Internal server error"}
+        ).dict()
