@@ -65,17 +65,19 @@ class WebhookHandler:
     async def handle_webhook(
         self,
         event_type: str,
-        signature: str,
+        signature: Optional[str],
         payload: bytes,
         repo: Repository,
         account: GitAccount
     ) -> Dict[str, Any]:
         """Handle webhook event"""
-        if not verify_signature(payload, signature, repo.webhook_secret):
-            return {
-                'statusCode': 401,
-                'body': json.dumps({'error': 'Invalid webhook signature'})
-            }
+        # Only verify signature if webhook secret is configured
+        if repo.webhook_secret and signature:
+            if not verify_signature(payload, signature, repo.webhook_secret):
+                return {
+                    'statusCode': 401,
+                    'body': json.dumps({'error': 'Invalid webhook signature'})
+                }
         
         try:
             payload_dict = json.loads(payload)
@@ -106,17 +108,30 @@ class WebhookHandler:
 async def _handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Async handler implementation"""
     try:
+        # Log the incoming event for debugging
+        logger.info(f"Received event: {json.dumps(event, default=str)}")
+        
         # Get webhook details
         headers = event.get('headers', {})
-        signature = headers.get('X-Hub-Signature-256', '')
-        event_type = headers.get('X-GitHub-Event', '')
-        payload = event.get('body', '').encode()
+        event_type = headers.get('X-GitHub-Event')
+        signature = headers.get('X-Hub-Signature-256')  # Now optional
         
-        if not signature or not event_type:
-            logger.error("Missing required headers")
+        if not event_type:
+            logger.error("Missing X-GitHub-Event header")
             return {
                 'statusCode': 400,
-                'body': json.dumps({'error': 'Missing required headers'})
+                'body': json.dumps({
+                    'error': 'Missing X-GitHub-Event header',
+                    'received_headers': headers
+                })
+            }
+
+        payload = event.get('body', '')
+        if not payload:
+            logger.error("Empty payload received")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Empty payload'})
             }
 
         try:
@@ -139,6 +154,7 @@ async def _handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Find repository in database
         async with get_db_session() as session:
+            from sqlalchemy import select
             # Query by repository URL
             repo = await session.execute(
                 select(Repository).where(Repository.repository_url == repository_url)
@@ -164,7 +180,7 @@ async def _handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return await webhook_handler.handle_webhook(
                 event_type,
                 signature,
-                payload,
+                payload.encode(),
                 repo,
                 account
             )
