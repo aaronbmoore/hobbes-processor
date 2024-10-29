@@ -16,4 +16,4 @@ boto3-stubs[essential]
 types-boto3
 sqlalchemy[mypy]
 types-python-jose
-types-aiohttp
+aiohttp-stubs
