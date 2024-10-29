@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import asyncio
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -103,8 +104,8 @@ class WebhookHandler:
                 'body': json.dumps({'error': 'Internal server error'})
             }
 
-async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Lambda handler function"""
+async def _handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Async handler implementation"""
     try:
         repo_id = event['pathParameters']['repo_id']
         signature = event['headers'].get('X-Hub-Signature-256', '')
@@ -141,3 +142,7 @@ async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 500,
             'body': json.dumps({'error': 'Internal server error'})
         }
+
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Lambda handler function that properly handles async execution"""
+    return asyncio.run(_handler(event, context))
