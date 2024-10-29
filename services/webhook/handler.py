@@ -60,30 +60,30 @@ class WebhookHandler:
             file_changes=file_changes
         )
         
-        return await self.sqs_handler.send_message(message)
+        # Remove await, just return the message_id directly
+        return self.sqs_handler.send_message(message)
     
     async def handle_webhook(
         self,
         event_type: str,
-        signature: Optional[str],
+        signature: str,
         payload: bytes,
         repo: Repository,
         account: GitAccount
     ) -> Dict[str, Any]:
         """Handle webhook event"""
-        # Only verify signature if webhook secret is configured
-        if repo.webhook_secret and signature:
-            if not verify_signature(payload, signature, repo.webhook_secret):
-                return {
-                    'statusCode': 401,
-                    'body': json.dumps({'error': 'Invalid webhook signature'})
-                }
+        if not verify_signature(payload, signature, repo.webhook_secret):
+            return {
+                'statusCode': 401,
+                'body': json.dumps({'error': 'Invalid webhook signature'})
+            }
         
         try:
             payload_dict = json.loads(payload)
             message_id = None
             
             if event_type == 'push':
+                # Remove await, process_push_event still returns a string
                 message_id = await self.process_push_event(
                     payload_dict,
                     repo,

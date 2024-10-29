@@ -17,9 +17,11 @@ engine = create_async_engine(
             "ssl": "true"
         }
     },
-    pool_pre_ping=True,  # Added for Lambda cold starts
-    pool_size=5,         # Configured for Lambda concurrent executions
-    max_overflow=10
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    pool_size=5,
+    max_overflow=10,
+    echo=True 
 )
 
 # Create async session factory
@@ -42,6 +44,8 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         raise
     finally:
         await session.close()
+        # Explicitly close connection for Lambda environment
+        await engine.dispose()
 
 # FastAPI dependency
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
