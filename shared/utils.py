@@ -10,7 +10,7 @@ def get_database_url() -> str:
     """
     ssm = boto3.client('ssm')
     response = ssm.get_parameter(
-        Name=f'/{os.environ["PROJECT_NAME"]}/database-url',
+        Name=f'/Hobbes/database-url',
         WithDecryption=True
     )
     return response['Parameter']['Value']
