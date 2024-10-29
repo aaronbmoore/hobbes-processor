@@ -37,9 +37,10 @@ def should_process_file(file_path: str, patterns: Optional[dict] = None) -> bool
     file_extension = file_path.split('.')[-1] if '.' in file_path else ''
     logger.info(f"File extension: {file_extension}")
     
-    if not patterns:
+    # If no patterns are specified or patterns is empty dict, use defaults
+    if not patterns or not any(patterns.values()):
         # Default patterns for code files - use both extensions with and without dot
-        default_extensions = {'py', '.py', 'js', '.js', 'ts', '.ts', 'jsx', '.jsx', 'tsx', '.tsx', 'yml', '.yml',
+        default_extensions = {'py', '.py', 'js', '.js', 'ts', '.ts', 'jsx', '.jsx', 'tsx', '.tsx', 
                             'java', '.java', 'cpp', '.cpp', 'h', '.h', 'cs', '.cs', 'go', '.go', 
                             'rb', '.rb', 'scss', '.scss'}
         
@@ -48,7 +49,7 @@ def should_process_file(file_path: str, patterns: Optional[dict] = None) -> bool
         return should_process
     
     # Check include patterns
-    include_patterns = patterns.get('include', [])
+    include_patterns = [p for p in patterns.get('include', []) if p]  # Filter out empty patterns
     if include_patterns:
         matches = [pattern for pattern in include_patterns if re.match(pattern, file_path)]
         if not matches:
@@ -57,7 +58,7 @@ def should_process_file(file_path: str, patterns: Optional[dict] = None) -> bool
         logger.info(f"File {file_path} matches include patterns: {matches}")
     
     # Check exclude patterns
-    exclude_patterns = patterns.get('exclude', [])
+    exclude_patterns = [p for p in patterns.get('exclude', []) if p]  # Filter out empty patterns
     if exclude_patterns:
         matches = [pattern for pattern in exclude_patterns if re.match(pattern, file_path)]
         if matches:
@@ -71,11 +72,22 @@ def should_process_file(file_path: str, patterns: Optional[dict] = None) -> bool
 def extract_file_changes(payload: PushEventPayload, patterns: Optional[dict] = None) -> List[FileChange]:
     """Extract file changes from push event payload"""
     logger.info("Processing push event payload for file changes")
-    logger.info(f"Using patterns: {patterns}")
+    logger.info(f"Raw patterns from database: {patterns}")
+    
+    # Clean up patterns - remove empty strings and None values
+    if patterns:
+        patterns = {
+            'include': [p for p in patterns.get('include', []) if p],
+            'exclude': [p for p in patterns.get('exclude', []) if p]
+        }
+        # If patterns are empty after cleaning, set to None to use defaults
+        if not any(patterns.values()):
+            patterns = None
+    
+    logger.info(f"Using cleaned patterns: {patterns}")
     
     changes: List[FileChange] = []
     
-    # Log all commits
     for commit in payload.get('commits', []):
         logger.info(f"Processing commit: {commit['id']}")
         
