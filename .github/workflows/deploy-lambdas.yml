@@ -3,39 +3,22 @@ name: Deploy Lambda Functions
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    paths:
+      - 'src/**'
+      - '.github/workflows/deploy-lambdas.yml'
 
 env:
-  PYTHON_VERSION: "3.12"
-  AWS_REGION: "us-east-1"
   PROJECT_NAME: "hobbes"
-  AWS_ACCOUNT_ID: "717279704730"
+  PYTHON_VERSION: "3.12"
 
 permissions:
-  id-token: write
-  contents: read
+  id-token: write   # Required for AWS OIDC
+  contents: read    # Required to checkout repository
 
 jobs:
-  test:
-    name: Test
+  deploy:
     runs-on: ubuntu-latest
     
-    services:
-      postgres:
-        image: postgres:latest
-        env:
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
 
@@ -45,70 +28,46 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-
-      # - name: Run tests
-      #   env:
-      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      #     PROJECT_NAME: ${{ env.PROJECT_NAME }}
-      #     LOG_LEVEL: "DEBUG"
-      #     POWERTOOLS_SERVICE_NAME: "test"
-      #   run: |
-      #     pytest tests/ -v --cov=src
-
-  build-and-deploy:
-    name: Build and Deploy
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    strategy:
-      matrix:
-        function: [webhook-handler, file-processor]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Package Lambda function
-        run: |
-          mkdir -p dist/${{ matrix.function }}
-          cp -r src/shared dist/${{ matrix.function }}/
-          cp -r src/${{ matrix.function }}/* dist/${{ matrix.function }}/
-          cd dist/${{ matrix.function }}
-          zip -r ../${{ matrix.function }}.zip .
-
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.PROJECT_NAME }}-github-actions
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActions
-
-      - name: Update Lambda Function
-        run: |
-          aws lambda update-function-code \
-            --function-name ${{ env.PROJECT_NAME }}-${{ matrix.function }} \
-            --zip-file fileb://dist/${{ matrix.function }}.zip
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-2
 
       - name: Update SSM Parameter
-        if: github.ref == 'refs/heads/main' && matrix.function == 'webhook-handler'
         run: |
           aws ssm put-parameter \
-            --name "/${{ env.PROJECT_NAME }}/database-url" \
+            --name "/${env.PROJECT_NAME}/database-url" \
             --value "${{ secrets.DATABASE_URL }}" \
             --type "SecureString" \
             --overwrite
+
+      - name: Build webhook handler
+        run: |
+          mkdir -p dist/webhook-handler
+          cp -r src/shared dist/webhook-handler/
+          cp -r src/webhook_handler/* dist/webhook-handler/
+          cd dist/webhook-handler
+          pip install -r ../../../requirements.txt --target .
+          zip -r ../webhook-handler.zip .
+
+      - name: Build file processor
+        run: |
+          mkdir -p dist/file-processor
+          cp -r src/shared dist/file-processor/
+          cp -r src/file_processor/* dist/file-processor/
+          cd dist/file-processor
+          pip install -r ../../../requirements.txt --target .
+          zip -r ../file-processor.zip .
+
+      - name: Deploy webhook handler
+        run: |
+          aws lambda update-function-code \
+            --function-name ${PROJECT_NAME}-webhook-handler \
+            --zip-file fileb://dist/webhook-handler.zip
+
+      # - name: Deploy file processor
+      #   run: |
+      #     aws lambda update-function-code \
+      #       --function-name ${PROJECT_NAME}-file-processor \
+      #       --zip-file fileb://dist/file-processor.zip
