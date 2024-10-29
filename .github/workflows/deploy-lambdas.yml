@@ -70,4 +70,4 @@ jobs:
       #   run: |
       #     aws lambda update-function-code \
       #       --function-name ${PROJECT_NAME}-file-processor \
-      #       --zip-file fileb://dist/file-processor.zip
+      #       --zip-file fileb://dist/file-processor.zip  
