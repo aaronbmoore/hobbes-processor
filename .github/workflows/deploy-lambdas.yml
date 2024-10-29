@@ -48,7 +48,7 @@ jobs:
           cp -r shared dist/webhook-handler/
           cp -r services/webhook/* dist/webhook-handler/
           cd dist/webhook-handler
-          pip install -r ../../../requirements.txt --target .
+          pip install -r ../../requirements.txt --target .
           zip -r ../webhook-handler.zip .
 
       # - name: Build file processor
