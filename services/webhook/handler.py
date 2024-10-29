@@ -113,15 +113,16 @@ async def _handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Get webhook details
         headers = event.get('headers', {})
-        event_type = headers.get('X-GitHub-Event')
-        signature = headers.get('X-Hub-Signature-256')  # Now optional
+        # Check for both upper and lowercase header names
+        event_type = headers.get('X-GitHub-Event') or headers.get('x-github-event')
+        signature = headers.get('X-Hub-Signature-256') or headers.get('x-hub-signature-256')
         
         if not event_type:
-            logger.error("Missing X-GitHub-Event header")
+            logger.error("Missing GitHub Event header")
             return {
                 'statusCode': 400,
                 'body': json.dumps({
-                    'error': 'Missing X-GitHub-Event header',
+                    'error': 'Missing GitHub Event header',
                     'received_headers': headers
                 })
             }
