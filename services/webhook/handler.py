@@ -110,7 +110,7 @@ class WebhookHandler:
                 'statusCode': 400,
                 'body': json.dumps({'error': 'Invalid JSON payload'})
             }
-        
+         
         try:
             message_id = None
             
