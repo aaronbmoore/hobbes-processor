@@ -7,13 +7,7 @@ import os
 from ..utils import get_database_url
 
 
-# # Load environment variables
-# load_dotenv()
 
-# # Get database URL with type check
-# database_url = os.getenv('DATABASE_URL')
-# if not database_url:
-#     raise ValueError("DATABASE_URL must be set in environment variables")
 
 # Create SSL context for Neon
 ssl_context = ssl.create_default_context()
