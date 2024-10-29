@@ -39,7 +39,7 @@ def should_process_file(file_path: str, patterns: Optional[dict] = None) -> bool
     
     if not patterns:
         # Default patterns for code files - use both extensions with and without dot
-        default_extensions = {'py', '.py', 'js', '.js', 'ts', '.ts', 'jsx', '.jsx', 'tsx', '.tsx', 
+        default_extensions = {'py', '.py', 'js', '.js', 'ts', '.ts', 'jsx', '.jsx', 'tsx', '.tsx', 'yml', '.yml',
                             'java', '.java', 'cpp', '.cpp', 'h', '.h', 'cs', '.cs', 'go', '.go', 
                             'rb', '.rb', 'scss', '.scss'}
         
