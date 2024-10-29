@@ -6,6 +6,7 @@ on:
     paths:
       - 'services/**'
       - '.github/workflows/deploy-lambdas.yml'
+      - 'shared/**'
 
 env:
   PROJECT_NAME: "hobbes"
