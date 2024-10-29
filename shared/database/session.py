@@ -6,9 +6,6 @@ import os
 # from dotenv import load_dotenv
 from ..utils import get_database_url
 
-
-
-
 # Create SSL context for Neon
 ssl_context = ssl.create_default_context()
 ssl_context.verify_mode = ssl.CERT_REQUIRED
