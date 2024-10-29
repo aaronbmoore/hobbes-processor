@@ -105,6 +105,7 @@ class WebhookHandler:
                 'body': json.dumps({'error': 'Internal server error'})
             }
 
+
 async def _handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Async handler implementation"""
     try:
