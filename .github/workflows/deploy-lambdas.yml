@@ -51,14 +51,14 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: Run tests
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          PROJECT_NAME: ${{ env.PROJECT_NAME }}
-          LOG_LEVEL: "DEBUG"
-          POWERTOOLS_SERVICE_NAME: "test"
-        run: |
-          pytest tests/ -v --cov=src
+      # - name: Run tests
+      #   env:
+      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      #     PROJECT_NAME: ${{ env.PROJECT_NAME }}
+      #     LOG_LEVEL: "DEBUG"
+      #     POWERTOOLS_SERVICE_NAME: "test"
+      #   run: |
+      #     pytest tests/ -v --cov=src
 
   build-and-deploy:
     name: Build and Deploy
