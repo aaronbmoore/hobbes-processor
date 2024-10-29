@@ -2,8 +2,6 @@ from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 import ssl
-import os
-# from dotenv import load_dotenv
 from ..utils import get_database_url
 
 # Create SSL context for Neon
