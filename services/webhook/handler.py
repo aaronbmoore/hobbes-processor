@@ -194,6 +194,7 @@ async def _handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps({'error': 'Internal server error'})
         }
 
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Lambda handler function that properly handles async execution"""
     return asyncio.run(_handler(event, context))
