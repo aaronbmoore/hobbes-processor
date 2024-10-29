@@ -37,7 +37,7 @@ jobs:
       - name: Update SSM Parameter
         run: |
           aws ssm put-parameter \
-            --name "/${env.PROJECT_NAME}/database-url" \
+            --name "/Hobbes/database-url" \
             --value "${{ secrets.DATABASE_URL }}" \
             --type "SecureString" \
             --overwrite
@@ -63,7 +63,7 @@ jobs:
       - name: Deploy webhook handler
         run: |
           aws lambda update-function-code \
-            --function-name ${PROJECT_NAME}-webhook-handler \
+            --function-name Hobbes-webhook-handler \
             --zip-file fileb://dist/webhook-handler.zip
 
       # - name: Deploy file processor
