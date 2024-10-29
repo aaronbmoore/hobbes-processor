@@ -21,7 +21,6 @@ from shared.github.webhook import (
 from shared.queue.sqs import SQSHandler
 from shared.queue.messages import create_push_event_message, create_setup_message
 
-# Set up basic logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -107,14 +106,47 @@ class WebhookHandler:
 async def _handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Async handler implementation"""
     try:
-        repo_id = event['pathParameters']['repo_id']
-        signature = event['headers'].get('X-Hub-Signature-256', '')
-        event_type = event['headers'].get('X-GitHub-Event', '')
-        payload = event['body'].encode()
+        # Get webhook details
+        headers = event.get('headers', {})
+        signature = headers.get('X-Hub-Signature-256', '')
+        event_type = headers.get('X-GitHub-Event', '')
+        payload = event.get('body', '').encode()
         
+        if not signature or not event_type:
+            logger.error("Missing required headers")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Missing required headers'})
+            }
+
+        try:
+            payload_dict = json.loads(payload)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON payload")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Invalid JSON payload'})
+            }
+
+        # Get repository information from the payload
+        repository_url = payload_dict.get('repository', {}).get('html_url')
+        if not repository_url:
+            logger.error("No repository URL in payload")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Missing repository information'})
+            }
+        
+        # Find repository in database
         async with get_db_session() as session:
-            repo = await session.get(Repository, repo_id)
+            # Query by repository URL
+            repo = await session.execute(
+                select(Repository).where(Repository.repository_url == repository_url)
+            )
+            repo = repo.scalar_one_or_none()
+            
             if not repo or not repo.is_active:
+                logger.warning(f"Repository not found: {repository_url}")
                 return {
                     'statusCode': 404,
                     'body': json.dumps({'error': 'Repository not found'})
@@ -122,6 +154,7 @@ async def _handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             account = await session.get(GitAccount, repo.git_account_id)
             if not account or not account.is_active:
+                logger.warning(f"Git account not found: {repo.git_account_id}")
                 return {
                     'statusCode': 404,
                     'body': json.dumps({'error': 'Git account not found'})
