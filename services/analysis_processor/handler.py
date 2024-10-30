@@ -192,5 +192,3 @@ def handler(event: Dict, context: Any) -> Dict[str, Any]:
             'statusCode': 500,
             'body': f"Processing failed: {str(e)}"
         }
-    
-    
