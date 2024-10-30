@@ -52,14 +52,14 @@ jobs:
           pip install -r ../../requirements.txt --target .
           zip -r ../webhook-handler.zip .
  
-      # - name: Build file processor
-      #   run: |
-      #     mkdir -p dist/file-processor
-      #     cp -r src/shared dist/file-processor/
-      #     cp -r src/file_processor/* dist/file-processor/
-      #     cd dist/file-processor
-      #     pip install -r ../../../requirements.txt --target .
-      #     zip -r ../file-processor.zip .
+      - name: Build file processor
+        run: |
+          mkdir -p dist/file-processor
+          cp -r shared dist/file-processor/
+          cp -r services/file_processor/* dist/file-processor/
+          cd dist/file-processor
+          pip install -r ../../requirements.txt --target .
+          zip -r ../file-processor.zip .
 
       - name: Deploy webhook handler
         run: |
@@ -67,8 +67,8 @@ jobs:
             --function-name Hobbes-webhook-handler \
             --zip-file fileb://dist/webhook-handler.zip
 
-      # - name: Deploy file processor
-      #   run: |
-      #     aws lambda update-function-code \
-      #       --function-name ${PROJECT_NAME}-file-processor \
-      #       --zip-file fileb://dist/file-processor.zip  
+      - name: Deploy file processor
+        run: |
+          aws lambda update-function-code \
+            --function-name Hobbes-file-processor \
+            --zip-file fileb://dist/file-processor.zip  
