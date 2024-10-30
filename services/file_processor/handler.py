@@ -3,7 +3,7 @@ import json
 import logging
 import boto3
 import asyncio
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -288,7 +288,7 @@ async def handler(event: Dict, context: Any) -> Dict:
         'body': json.dumps({'message': 'Processing complete'})
     }
 
-async def process_event(event: Dict, context: Any) -> Dict[str, Any]:
+async def process_event(event: Dict, context: Any) -> None:
     processor = FileProcessor()
     
     try:
@@ -296,13 +296,11 @@ async def process_event(event: Dict, context: Any) -> Dict[str, Any]:
             for record in event.get('Records', []):
                 await processor.process_message(record, session)
     finally:
-        if hasattr(processor, 'github_client'):
-            await processor.github_client.close()
+        await processor.github_client.close()
 
+def lambda_handler(event: Dict, context: Any) -> Dict[str, Any]:
+    asyncio.run(process_event(event, context))
     return {
         'statusCode': 200,
         'body': 'Processing complete'
     }
-
-def lambda_handler(event: Dict, context: Any) -> Dict[str, Any]:
-    return asyncio.get_event_loop().run_until_complete(process_event(event, context))
