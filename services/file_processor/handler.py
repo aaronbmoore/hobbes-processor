@@ -51,7 +51,7 @@ class FileProcessor:
         self.s3_client = boto3.client('s3')
         self.sqs_client = boto3.client('sqs')
         self.processing_bucket = os.environ['PROCESSING_BUCKET']
-        self.queue_url = os.environ['FILE_PROCESSING_QUEUE_URL']
+        self.queue_url = os.environ['SQS_QUEUE_URL']
         
     async def process_message(self, message: Dict) -> None:
         try:
