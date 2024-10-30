@@ -54,6 +54,7 @@ class FileProcessor:
         
     async def process_message(self, message: Dict) -> None:
         try:
+            logger.info(f"Received message structure: {json.dumps(message)}")
             payload = ProcessingPayload.from_sqs_message(json.loads(message['body']))
             
             manifest = {
@@ -150,11 +151,12 @@ class FileProcessor:
                 None,
                 lambda: self.sqs_client.delete_message(
                     QueueUrl=queue_url,
-                    ReceiptHandle=message['ReceiptHandle']
+                    ReceiptHandle=message.get('ReceiptHandle')  
                 )
             )
         except Exception as e:
             logger.error(f"Error deleting SQS message: {str(e)}")
+            logger.error(f"Message structure: {json.dumps(message)}")
 
 def handler(event: Dict, context: Any) -> Dict[str, Any]:
     processor = FileProcessor()
