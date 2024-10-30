@@ -3,7 +3,7 @@ import json
 import logging
 import boto3
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -288,7 +288,7 @@ async def handler(event: Dict, context: Any) -> Dict:
         'body': json.dumps({'message': 'Processing complete'})
     }
 
-async def process_event(event: Dict, context: Any) -> Dict:
+async def process_event(event: Dict, context: Any) -> Dict[str, Any]:
     processor = FileProcessor()
     
     try:
@@ -296,16 +296,13 @@ async def process_event(event: Dict, context: Any) -> Dict:
             for record in event.get('Records', []):
                 await processor.process_message(record, session)
     finally:
-        # Ensure aiohttp session is closed
         if hasattr(processor, 'github_client'):
             await processor.github_client.close()
 
     return {
         'statusCode': 200,
-        'body': json.dumps({'message': 'Processing complete'})
+        'body': 'Processing complete'
     }
 
-def lambda_handler(event: Dict, context: Any) -> Dict:
-    """AWS Lambda entry point"""
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(process_event(event, context))
+def lambda_handler(event: Dict, context: Any) -> Dict[str, Any]:
+    return asyncio.get_event_loop().run_until_complete(process_event(event, context))
