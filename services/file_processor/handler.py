@@ -151,7 +151,7 @@ class FileProcessor:
                 None,
                 lambda: self.sqs_client.delete_message(
                     QueueUrl=queue_url,
-                    ReceiptHandle=message.get('ReceiptHandle')  
+                    ReceiptHandle=message.get('receiptHandle')  
                 )
             )
         except Exception as e:
