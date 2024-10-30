@@ -51,7 +51,6 @@ class FileProcessor:
         self.s3_client = boto3.client('s3')
         self.sqs_client = boto3.client('sqs')
         self.processing_bucket = os.environ['PROCESSING_BUCKET']
-        self.queue_url = os.environ['SQS_QUEUE_URL']
         
     async def process_message(self, message: Dict) -> None:
         try:
@@ -115,11 +114,8 @@ class FileProcessor:
                         'commit_sha': payload.commit_info.sha
                     }
                 )
-                
-                await self.delete_message(message)
-            else:
-                logger.warning(f"No files processed for commit {payload.commit_info.sha}")
-                await self.delete_message(message)
+            
+            await self.delete_message(message)
                 
         except Exception as e:
             logger.error(f"Error processing message: {str(e)}")
@@ -141,10 +137,11 @@ class FileProcessor:
 
     async def delete_message(self, message: Dict) -> None:
         try:
+            queue_url = os.environ['FILE_PROCESSING_QUEUE_URL']
             await asyncio.get_event_loop().run_in_executor(
                 None,
                 lambda: self.sqs_client.delete_message(
-                    QueueUrl=self.queue_url,
+                    QueueUrl=queue_url,
                     ReceiptHandle=message['ReceiptHandle']
                 )
             )
