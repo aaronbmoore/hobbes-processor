@@ -299,7 +299,14 @@ async def process_event(event: Dict, context: Any) -> None:
         await processor.github_client.close()
 
 def lambda_handler(event: Dict, context: Any) -> Dict[str, Any]:
-    asyncio.run(process_event(event, context))
+    processor = FileProcessor()
+    
+    async def process():
+        async with get_async_session() as session:
+            for record in event.get('Records', []):
+                await processor.process_message(record, session)
+                
+    asyncio.run(process())
     return {
         'statusCode': 200,
         'body': 'Processing complete'
