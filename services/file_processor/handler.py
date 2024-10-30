@@ -151,7 +151,7 @@ class FileProcessor:
         except Exception as e:
             logger.error(f"Error deleting SQS message: {str(e)}")
 
-def lambda_handler(event: Dict, context: Any) -> Dict[str, Any]:
+def handler(event: Dict, context: Any) -> Dict[str, Any]:
     processor = FileProcessor()
     
     async def process():
