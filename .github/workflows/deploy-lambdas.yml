@@ -61,6 +61,16 @@ jobs:
           pip install -r ../../requirements.txt --target .
           zip -r ../file-processor.zip .
 
+      - name: Build Analysis processor
+        run: |
+          mkdir -p dist/analysis-processor
+          cp -r shared dist/analysis-processor/
+          cp -r services/analysis_processor/* dist/analysis-processor/
+          cd dist/analysis-processor
+          pip install -r ../../requirements.txt --target .
+          zip -r ../analysis-processor.zip .
+
+
       - name: Deploy webhook handler
         run: |
           aws lambda update-function-code \
@@ -72,3 +82,9 @@ jobs:
           aws lambda update-function-code \
             --function-name Hobbes-file-processor \
             --zip-file fileb://dist/file-processor.zip  
+
+      - name: Deploy analysis processor
+        run: |
+          aws lambda update-function-code \
+            --function-name Hobbes-analysis-processor \
+            --zip-file fileb://dist/analysis-processor.zip  
