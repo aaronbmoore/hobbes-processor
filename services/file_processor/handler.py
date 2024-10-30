@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database.session import get_async_session
-from shared.github import GitHubClient
+from shared.github.client import GitHubClient
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
