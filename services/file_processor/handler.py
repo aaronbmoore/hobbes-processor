@@ -54,7 +54,7 @@ class FileProcessor:
         
     async def process_message(self, message: Dict) -> None:
         try:
-            payload = ProcessingPayload.from_sqs_message(json.loads(message['Body']))
+            payload = ProcessingPayload.from_sqs_message(json.loads(message['body']))
             
             manifest = {
                 'commit_info': {
