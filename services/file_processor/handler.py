@@ -288,5 +288,24 @@ async def handler(event: Dict, context: Any) -> Dict:
         'body': json.dumps({'message': 'Processing complete'})
     }
 
+async def process_event(event: Dict, context: Any) -> Dict:
+    processor = FileProcessor()
+    
+    try:
+        async with get_async_session() as session:
+            for record in event.get('Records', []):
+                await processor.process_message(record, session)
+    finally:
+        # Ensure aiohttp session is closed
+        if hasattr(processor, 'github_client'):
+            await processor.github_client.close()
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps({'message': 'Processing complete'})
+    }
+
 def lambda_handler(event: Dict, context: Any) -> Dict:
-    return asyncio.run(handler(event, context))
+    """AWS Lambda entry point"""
+    loop = asyncio.get_event_loop()
+    return loop.run_until_complete(process_event(event, context))
