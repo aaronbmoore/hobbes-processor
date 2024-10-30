@@ -51,11 +51,9 @@ class ManifestData:
         )
 
 class APIKeyManager:
-    """Manages API keys from SSM Parameter Store"""
     def __init__(self):
         self.ssm_client = boto3.client('ssm')
         self._openai_api_key: Optional[str] = None
-        self._claude_api_key: Optional[str] = None
 
     def get_openai_api_key(self) -> str:
         if not self._openai_api_key:
@@ -75,132 +73,118 @@ class AnalysisProcessor:
     def __init__(self):
         self.s3_client = boto3.client('s3')
         self.processing_bucket = os.environ['PROCESSING_BUCKET']
+        logger.info(f"Initialized AnalysisProcessor with bucket: {self.processing_bucket}")
         self.api_key_manager = APIKeyManager()
         self.openai_client = None
 
     def init_openai(self):
-        """Initialize OpenAI client with API key"""
-        if not self.openai_client:
-            api_key = self.api_key_manager.get_openai_api_key()
-            self.openai_client = OpenAI(api_key=api_key)
+        try:
+            if not self.openai_client:
+                api_key = self.api_key_manager.get_openai_api_key()
+                self.openai_client = OpenAI(api_key=api_key)
+                logger.info("Successfully initialized OpenAI client")
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI client: {str(e)}")
+            raise
 
     def get_embeddings(self, text: str) -> list[float]:
-        """Generate embeddings for text using OpenAI API"""
         try:
             self.init_openai()
+            logger.info(f"Generating embeddings for text length: {len(text)}")
             response = self.openai_client.embeddings.create(
                 model="text-embedding-ada-002",
                 input=text
             )
-            return response.data[0].embedding
+            embeddings = response.data[0].embedding
+            logger.info(f"Generated embeddings with dimensions: {len(embeddings)}")
+            logger.info(f"Sample of embeddings (first 5 values): {embeddings[:5]}")
+            return embeddings
         except Exception as e:
             logger.error(f"Failed to generate embeddings: {str(e)}")
             raise
 
     def process_file(self, file_content: str, file_info: FileInfo) -> None:
-        """Process a single file and generate embeddings"""
         try:
-            # Generate embeddings
+            logger.info(f"Processing file: {file_info.path}")
+            logger.info(f"Content length: {len(file_content)}")
+            logger.info(f"File SHA: {file_info.sha}")
+            
             embeddings = self.get_embeddings(file_content)
             
-            # Log success
-            logger.info(f"Successfully generated embeddings for {file_info.path}")
-            logger.info(f"Embedding dimensions: {len(embeddings)}")
-            
-            # Store embeddings in S3 for verification
-            embedding_key = f"embeddings/{file_info.s3_key}.json"
-            embedding_data = {
-                'file_path': file_info.path,
-                'embedding': embeddings,
-                'generated_at': datetime.utcnow().isoformat()
-            }
-            
-            self.s3_client.put_object(
-                Bucket=self.processing_bucket,
-                Key=embedding_key,
-                Body=json.dumps(embedding_data).encode('utf-8')
-            )
+            # Log successful processing
+            logger.info(f"Successfully processed file {file_info.path}")
+            logger.info("Processing details:")
+            logger.info(f"  - File path: {file_info.path}")
+            logger.info(f"  - Embedding dimensions: {len(embeddings)}")
+            logger.info(f"  - Processing time: {datetime.utcnow().isoformat()}")
 
         except Exception as e:
             logger.error(f"Error processing file {file_info.path}: {str(e)}")
             raise
 
     def process_manifest(self, record: Dict) -> None:
-        """Process an S3 event record containing a manifest"""
         try:
             bucket = record['s3']['bucket']['name']
             key = record['s3']['object']['key']
             
+            logger.info(f"Processing manifest from bucket: {bucket}, key: {key}")
+            
             if not key.startswith('manifests/') or not key.endswith('.json'):
                 logger.info(f"Skipping non-manifest file: {key}")
                 return
-                
-            logger.info(f"Processing manifest: {key}")
             
-            # Get manifest from S3
-            try:
-                response = self.s3_client.get_object(
-                    Bucket=self.processing_bucket,
-                    Key=key
-                )
-                manifest_content = response['Body'].read().decode('utf-8')
-            except Exception as e:
-                logger.error(f"Failed to retrieve manifest {key}: {str(e)}")
-                raise
+            response = self.s3_client.get_object(
+                Bucket=self.processing_bucket,
+                Key=key
+            )
+            manifest_content = response['Body'].read().decode('utf-8')
             
             manifest_data = ManifestData.from_json(json.loads(manifest_content))
-            logger.info(f"Retrieved manifest for commit: {manifest_data.commit_info.sha}")
+            logger.info(f"Processing commit: {manifest_data.commit_info.sha}")
+            logger.info(f"Repository: {manifest_data.repository.url}")
+            logger.info(f"Total files to process: {len(manifest_data.files)}")
             
-            # Process each file in manifest
+            processed_files = 0
             for file_info in manifest_data.files:
                 try:
-                    # Get file content
                     response = self.s3_client.get_object(
                         Bucket=self.processing_bucket,
                         Key=file_info.s3_key
                     )
                     file_content = response['Body'].read().decode('utf-8')
                     
-                    # Process the file
                     self.process_file(file_content, file_info)
+                    processed_files += 1
                     
                 except Exception as e:
                     logger.error(f"Error processing file {file_info.path}: {str(e)}")
-                    # Continue with next file instead of failing entire manifest
                     continue
             
-            # Update manifest status
-            manifest_data.status = 'embeddings_generated'
-            updated_manifest = {
-                'commit_info': vars(manifest_data.commit_info),
-                'repository': vars(manifest_data.repository),
-                'files': [vars(f) for f in manifest_data.files],
-                'status': manifest_data.status,
-                'created_at': manifest_data.created_at,
-                'analyzed_at': datetime.utcnow().isoformat()
-            }
-            
-            self.s3_client.put_object(
-                Bucket=self.processing_bucket,
-                Key=key,
-                Body=json.dumps(updated_manifest).encode('utf-8')
-            )
+            logger.info(f"Manifest processing complete:")
+            logger.info(f"  - Successfully processed: {processed_files}/{len(manifest_data.files)} files")
+            logger.info(f"  - Commit SHA: {manifest_data.commit_info.sha}")
+            logger.info(f"  - Processing time: {datetime.utcnow().isoformat()}")
             
         except Exception as e:
             logger.error(f"Error processing manifest: {str(e)}")
             raise
 
 def handler(event: Dict, context: Any) -> Dict[str, Any]:
-    """Lambda handler function"""
+    logger.info("Starting analysis processor")
+    logger.info(f"Event: {json.dumps(event)}")
+    
     processor = AnalysisProcessor()
     
     try:
+        records_processed = 0
         for record in event.get('Records', []):
             processor.process_manifest(record)
+            records_processed += 1
         
+        logger.info(f"Processing complete. Processed {records_processed} records")
         return {
             'statusCode': 200,
-            'body': 'Processing complete'
+            'body': f'Successfully processed {records_processed} records'
         }
     except Exception as e:
         logger.error(f"Handler failed: {str(e)}")
