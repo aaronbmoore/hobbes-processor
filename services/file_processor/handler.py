@@ -120,24 +120,24 @@ class FileProcessor:
         except Exception as e:
             logger.error(f"Error processing message: {str(e)}")
 
-async def upload_to_s3(self, key: str, content: str, metadata: Dict) -> None:
-    try:
-        if not isinstance(content, str):
-            logger.error(f"Content type error: {type(content)}")
-            return
-            
-        await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: self.s3_client.put_object(
-                Bucket=self.processing_bucket,
-                Key=key,
-                Body=content.encode('utf-8') if isinstance(content, str) else content,
-                Metadata={str(k): str(v) for k, v in metadata.items()}
+    async def upload_to_s3(self, key: str, content: str, metadata: Dict) -> None:
+        try:
+            if not isinstance(content, str):
+                logger.error(f"Content type error: {type(content)}")
+                return
+                
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self.s3_client.put_object(
+                    Bucket=self.processing_bucket,
+                    Key=key,
+                    Body=content.encode('utf-8') if isinstance(content, str) else content,
+                    Metadata={str(k): str(v) for k, v in metadata.items()}
+                )
             )
-        )
-    except Exception as e:
-        logger.error(f"S3 upload error for key {key}: {str(e)}")
-        raise
+        except Exception as e:
+            logger.error(f"S3 upload error for key {key}: {str(e)}")
+            raise
 
     async def delete_message(self, message: Dict) -> None:
         try:
