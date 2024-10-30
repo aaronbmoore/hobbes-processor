@@ -54,7 +54,7 @@ class FileProcessor:
         
     async def process_message(self, message: Dict) -> None:
         try:
-            logger.info(f"Received message structure: {json.dumps(message)}")
+            # logger.info(f"Received message structure: {json.dumps(message)}")
             payload = ProcessingPayload.from_sqs_message(json.loads(message['body']))
             
             manifest = {
