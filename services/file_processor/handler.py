@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database import get_async_session
+from shared.database.session import get_async_session
 from shared.github import GitHubClient
 
 logger = logging.getLogger()
