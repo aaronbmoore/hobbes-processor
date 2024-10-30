@@ -141,7 +141,11 @@ class FileProcessor:
 
     async def delete_message(self, message: Dict) -> None:
         try:
-            queue_url = os.environ['FILE_PROCESSING_QUEUE_URL']
+            queue_url = os.environ.get('SQS_QUEUE_URL')
+            if not queue_url:
+                logger.error("No SQS queue URL found in environment")
+                return
+                
             await asyncio.get_event_loop().run_in_executor(
                 None,
                 lambda: self.sqs_client.delete_message(

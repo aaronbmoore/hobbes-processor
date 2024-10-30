@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.database import get_async_session
+from shared.database.session import get_async_session
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
