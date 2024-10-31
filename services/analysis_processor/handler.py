@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from openai import OpenAI
 from code_analysis import CodeAnalyzer
-from qdrant_manager import QdrantManager
+# from qdrant_manager import QdrantManager
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -133,14 +133,14 @@ class AnalysisProcessor:
             self.code_analyzer = CodeAnalyzer(api_key=api_key)
             logger.info("Successfully initialized Code Analyzer")
 
-    def init_qdrant(self):
-        """Initialize Qdrant client if needed"""
-        if not self.qdrant_manager:
-            api_key = self.api_key_manager.get_qdrant_api_key()
-            self.qdrant_manager = QdrantManager(api_key)
-            # Ensure collection exists
-            self.qdrant_manager.ensure_collection()
-            logger.info("Successfully initialized Qdrant manager")
+    # def init_qdrant(self):
+    #     """Initialize Qdrant client if needed"""
+    #     if not self.qdrant_manager:
+    #         api_key = self.api_key_manager.get_qdrant_api_key()
+    #         self.qdrant_manager = QdrantManager(api_key)
+    #         # Ensure collection exists
+    #         self.qdrant_manager.ensure_collection()
+    #         logger.info("Successfully initialized Qdrant manager")
 
 
     def generate_segment_id(self, repository_id: str, file_path: str, content: str) -> str:
@@ -245,18 +245,18 @@ class AnalysisProcessor:
             )
 
             # Initialize Qdrant if needed
-            self.init_qdrant()
+            # self.init_qdrant()
             
-            # Store in Qdrant
-            self.qdrant_manager.store_vector(
-                id=metadata['id'],
-                vector=metadata['vector'],
-                payload=metadata['payload']
-            )            
+            # # Store in Qdrant
+            # self.qdrant_manager.store_vector(
+            #     id=metadata['id'],
+            #     vector=metadata['vector'],
+            #     payload=metadata['payload']
+            # )            
             
             # Log the complete metadata structure
-            # logger.info("Generated metadata structure:")
-            # logger.info(json.dumps(metadata, indent=2))
+            logger.info("Generated metadata structure:")
+            logger.info(json.dumps(metadata, indent=2))
             
             # Log processing success
             logger.info(f"Successfully processed file {file_info.path}")
