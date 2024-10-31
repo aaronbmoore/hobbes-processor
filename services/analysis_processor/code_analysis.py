@@ -74,11 +74,13 @@ class CodeAnalyzer:
     def analyze_code(self, file_path: str, file_content: str, repo_url: str) -> Dict[str, Any]:
         """Perform comprehensive code analysis using Claude"""
         try:
-            # Get primary code analysis
+            # Format prompt correctly for Claude API
+            formatted_prompt = f"\n\nHuman: {self.prompts.get_analysis_prompt(file_path, file_content, repo_url)}\n\nAssistant:"
+            
             response = self.client.completions.create(
                 model="claude-3-haiku-20240307",
                 max_tokens_to_sample=4096,
-                prompt=self.prompts.get_analysis_prompt(file_path, file_content, repo_url)
+                prompt=formatted_prompt
             )
             
             analysis_result = json.loads(response.completion)
