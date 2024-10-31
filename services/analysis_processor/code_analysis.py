@@ -74,21 +74,25 @@ class CodeAnalyzer:
     def analyze_code(self, file_path: str, file_content: str, repo_url: str) -> Dict[str, Any]:
         """Perform comprehensive code analysis using Claude"""
         try:
-            # Format prompt correctly for Claude API
-            formatted_prompt = f"\n\nHuman: {self.prompts.get_analysis_prompt(file_path, file_content, repo_url)}\n\nAssistant:"
-            
-            response = self.client.completions.create(
+            logger.info("Starting code analysis with Claude-3")
+            response = self.client.messages.create(
                 model="claude-3-haiku-20240307",
-                max_tokens_to_sample=4096,
-                prompt=formatted_prompt
+                max_tokens=4096,
+                messages=[{
+                    "role": "user",
+                    "content": self.prompts.get_analysis_prompt(file_path, file_content, repo_url)
+                }]
             )
             
-            analysis_result = json.loads(response.completion)
-            logger.info(f"Analysis complete for {file_path}")
-            logger.info(f"Analysis results: {json.dumps(analysis_result, indent=2)}")
+            # Added more detailed logging to track the response
+            logger.info("Received response from Claude-3")
+            logger.info(f"Response content: {response.content[0].text[:200]}...")  # Log start of response
             
+            analysis_result = json.loads(response.content[0].text)
             return analysis_result
             
         except Exception as e:
-            logger.error(f"Error analyzing code: {str(e)}")
+            logger.error(f"Error in code analysis: {str(e)}")
+            if hasattr(e, 'response'):
+                logger.error(f"API Response: {e.response}")
             raise
