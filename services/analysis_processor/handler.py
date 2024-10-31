@@ -56,6 +56,7 @@ class APIKeyManager:
     def __init__(self):
         self.ssm_client = boto3.client('ssm')
         self._openai_api_key: Optional[str] = None
+        self._claude_api_key: Optional[str] = None
 
     def get_openai_api_key(self) -> str:
         if not self._openai_api_key:
