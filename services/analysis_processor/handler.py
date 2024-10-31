@@ -78,6 +78,17 @@ class AnalysisProcessor:
         self.api_key_manager = APIKeyManager()
         self.openai_client = None
 
+    def init_openai(self):
+        """Initialize OpenAI client with API key"""
+        try:
+            if not self.openai_client:
+                api_key = self.api_key_manager.get_openai_api_key()
+                self.openai_client = OpenAI(api_key=api_key)
+                logger.info("Successfully initialized OpenAI client")
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI client: {str(e)}")
+            raise    
+
     def generate_segment_id(self, repository_id: str, file_path: str, content: str) -> str:
         """Generate a unique segment ID based on repository, file path, and content"""
         content_hash = hashlib.sha256(content.encode()).hexdigest()[:12]
