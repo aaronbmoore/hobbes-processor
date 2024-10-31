@@ -50,7 +50,7 @@ jobs:
           cp -r shared dist/webhook-handler/
           cp -r services/webhook/* dist/webhook-handler/
           cd dist/webhook-handler
-          pip install -r ../../requirements.txt --target .
+          pip install -r requirements.txt --target .
           zip -r ../webhook-handler.zip .
  
       - name: Build file processor
@@ -59,7 +59,7 @@ jobs:
           cp -r shared dist/file-processor/
           cp -r services/file_processor/* dist/file-processor/
           cd dist/file-processor
-          pip install -r ../../requirements.txt --target .
+          pip install -r requirements.txt --target .
           zip -r ../file-processor.zip .
 
       - name: Build Analysis processor
@@ -68,7 +68,7 @@ jobs:
           cp -r shared dist/analysis-processor/
           cp -r services/analysis_processor/* dist/analysis-processor/
           cd dist/analysis-processor
-          pip install -r ../../requirements.txt --target .
+          pip install -r requirements.txt --target .
           zip -r ../analysis-processor.zip .
 
 
