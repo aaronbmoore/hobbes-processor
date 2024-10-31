@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from openai import OpenAI
+from code_analysis import CodeAnalyzer
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -69,14 +70,29 @@ class APIKeyManager:
                 logger.error(f"Failed to get OpenAI API key: {str(e)}")
                 raise
         return self._openai_api_key
+    
+    def get_claude_api_key(self) -> str:
+        if not self._claude_api_key:
+            try:
+                param_name = os.environ['CLAUDE_API_KEY_PARAM']
+                response = self.ssm_client.get_parameter(
+                    Name=param_name,
+                    WithDecryption=True
+                )
+                self._claude_api_key = response['Parameter']['Value']
+            except Exception as e:
+                logger.error(f"Failed to get Claude API key: {str(e)}")
+                raise
+        return self._claude_api_key
 
 class AnalysisProcessor:
     def __init__(self):
         self.s3_client = boto3.client('s3')
         self.processing_bucket = os.environ['PROCESSING_BUCKET']
-        logger.info(f"Initialized AnalysisProcessor with bucket: {self.processing_bucket}")
         self.api_key_manager = APIKeyManager()
         self.openai_client = None
+        self.code_analyzer = None
+        logger.info(f"Initialized AnalysisProcessor with bucket: {self.processing_bucket}")
 
     def init_openai(self):
         """Initialize OpenAI client with API key"""
@@ -89,6 +105,14 @@ class AnalysisProcessor:
             logger.error(f"Failed to initialize OpenAI client: {str(e)}")
             raise    
 
+    def init_code_analyzer(self):
+        """Initialize the code analyzer with Claude API key"""
+        if not self.code_analyzer:
+            api_key = self.api_key_manager.get_claude_api_key()
+            self.code_analyzer = CodeAnalyzer(api_key=api_key)
+            logger.info("Successfully initialized Code Analyzer")
+
+
     def generate_segment_id(self, repository_id: str, file_path: str, content: str) -> str:
         """Generate a unique segment ID based on repository, file path, and content"""
         content_hash = hashlib.sha256(content.encode()).hexdigest()[:12]
@@ -99,45 +123,61 @@ class AnalysisProcessor:
                            file_info: FileInfo, 
                            manifest_data: ManifestData,
                            embeddings: List[float]) -> Dict:
-        """Create the initial metadata structure"""
-        segment_id = self.generate_segment_id(
-            manifest_data.repository.id,
-            file_info.path,
-            file_content
-        )
+        """Create comprehensive metadata structure"""
+        try:
+            segment_id = self.generate_segment_id(
+                manifest_data.repository.id,
+                file_info.path,
+                file_content
+            )
 
-        metadata = {
-            "id": segment_id,
-            "vector": embeddings,
-            "payload": {
-                "segment_info": {
-                    "segment_id": segment_id,
-                    "file_path": file_info.path,
-                    "content_hash": file_info.sha,
-                    "content_length": len(file_content),
-                    "created_at": datetime.utcnow().isoformat()
-                },
-                "file_context": {
-                    "repository_id": manifest_data.repository.id,
-                    "project_id": manifest_data.repository.project_id,
-                    "path": file_info.path,
-                    "git_sha": file_info.sha,
-                    "previous_git_sha": file_info.previous_sha
-                },
-                "git_context": {
-                    "repository_url": manifest_data.repository.url,
-                    "branch": manifest_data.repository.branch,
-                    "commit_info": {
-                        "sha": manifest_data.commit_info.sha,
-                        "message": manifest_data.commit_info.message,
-                        "author": manifest_data.commit_info.author,
-                        "timestamp": manifest_data.commit_info.timestamp
-                    }
+            # Initialize code analyzer if needed
+            self.init_code_analyzer()
+
+            # Get code analysis
+            code_analysis = self.code_analyzer.analyze_code(
+                file_info.path,
+                file_content,
+                manifest_data.repository.url
+            )
+
+            metadata = {
+                "id": segment_id,
+                "vector": embeddings,
+                "payload": {
+                    "segment_info": {
+                        "segment_id": segment_id,
+                        "file_path": file_info.path,
+                        "content_hash": file_info.sha,
+                        "content_length": len(file_content),
+                        "created_at": datetime.utcnow().isoformat()
+                    },
+                    "file_context": {
+                        "repository_id": manifest_data.repository.id,
+                        "project_id": manifest_data.repository.project_id,
+                        "path": file_info.path,
+                        "git_sha": file_info.sha,
+                        "previous_git_sha": file_info.previous_sha
+                    },
+                    "git_context": {
+                        "repository_url": manifest_data.repository.url,
+                        "branch": manifest_data.repository.branch,
+                        "commit_info": {
+                            "sha": manifest_data.commit_info.sha,
+                            "message": manifest_data.commit_info.message,
+                            "author": manifest_data.commit_info.author,
+                            "timestamp": manifest_data.commit_info.timestamp
+                        }
+                    },
+                    # Add the LLM-generated analysis
+                    "code_analysis": code_analysis["code_analysis"]
                 }
             }
-        }
 
-        return metadata
+            return metadata
+        except Exception as e:
+            logger.error(f"Error creating metadata: {str(e)}")
+            raise
 
     def get_embeddings(self, text: str) -> list[float]:
         """Generate embeddings for text using OpenAI API"""
