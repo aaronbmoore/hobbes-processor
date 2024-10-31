@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import logging
 import boto3
@@ -7,8 +8,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from openai import OpenAI
-from code_analysis import CodeAnalyzer
-from services.analysis_processor.qdrant_manager import QdrantManager
+from .code_analysis import CodeAnalyzer
+from .qdrant_manager import QdrantManager
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -311,25 +312,38 @@ class AnalysisProcessor:
             raise
 
 def handler(event: Dict, context: Any) -> Dict[str, Any]:
-    logger.info("Starting analysis processor")
-    logger.info(f"Event: {json.dumps(event)}")
+    # logger.info("Starting analysis processor")
+    # logger.info(f"Event: {json.dumps(event)}")
     
-    processor = AnalysisProcessor()
+    # processor = AnalysisProcessor()
     
-    try:
-        records_processed = 0
-        for record in event.get('Records', []):
-            processor.process_manifest(record)
-            records_processed += 1
+    # try:
+    #     records_processed = 0
+    #     for record in event.get('Records', []):
+    #         processor.process_manifest(record)
+    #         records_processed += 1
         
-        logger.info(f"Processing complete. Processed {records_processed} records")
-        return {
-            'statusCode': 200,
-            'body': f'Successfully processed {records_processed} records'
-        }
-    except Exception as e:
-        logger.error(f"Handler failed: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': f"Processing failed: {str(e)}"
-        }
+    #     logger.info(f"Processing complete. Processed {records_processed} records")
+    #     return {
+    #         'statusCode': 200,
+    #         'body': f'Successfully processed {records_processed} records'
+    #     }
+    # except Exception as e:
+    #     logger.error(f"Handler failed: {str(e)}")
+    #     return {
+    #         'statusCode': 500,
+    #         'body': f"Processing failed: {str(e)}"
+    #     }
+        # Debug: print Python's search path
+    logger.info("Python sys.path:")
+    for path in sys.path:
+        logger.info(f"  - {path}")
+    
+    # Debug: try to find openai package location
+    if OpenAI.__file__:
+        logger.info(f"OpenAI package location: {OpenAI.__file__}")
+
+    return {
+        'statusCode': 200,
+        'body': 'Test complete'
+    }
