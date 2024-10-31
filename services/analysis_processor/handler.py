@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from openai import OpenAI
 from code_analysis import CodeAnalyzer
+from shared.database.qdrant_manager import QdrantManager
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -57,6 +58,7 @@ class APIKeyManager:
         self.ssm_client = boto3.client('ssm')
         self._openai_api_key: Optional[str] = None
         self._claude_api_key: Optional[str] = None
+        self._qdrant_api_key: Optional[str] = None
 
     def get_openai_api_key(self) -> str:
         if not self._openai_api_key:
@@ -85,6 +87,20 @@ class APIKeyManager:
                 logger.error(f"Failed to get Claude API key: {str(e)}")
                 raise
         return self._claude_api_key
+    
+    def get_qdrant_api_key(self) -> str:
+        if not self._qdrant_api_key:
+            try:
+                param_name = os.environ['QDRANT_API_KEY_PARAM']
+                response = self.ssm_client.get_parameter(
+                    Name=param_name,
+                    WithDecryption=True
+                )
+                self._qdrant_api_key = response['Parameter']['Value']
+            except Exception as e:
+                logger.error(f"Failed to get Qdrant API key: {str(e)}")
+                raise
+        return self._qdrant_api_key
 
 class AnalysisProcessor:
     def __init__(self):
@@ -93,6 +109,7 @@ class AnalysisProcessor:
         self.api_key_manager = APIKeyManager()
         self.openai_client = None
         self.code_analyzer = None
+        self.qdrant_manager = None
         logger.info(f"Initialized AnalysisProcessor with bucket: {self.processing_bucket}")
 
     def init_openai(self):
@@ -112,6 +129,15 @@ class AnalysisProcessor:
             api_key = self.api_key_manager.get_claude_api_key()
             self.code_analyzer = CodeAnalyzer(api_key=api_key)
             logger.info("Successfully initialized Code Analyzer")
+
+    def init_qdrant(self):
+        """Initialize Qdrant client if needed"""
+        if not self.qdrant_manager:
+            api_key = self.api_key_manager.get_qdrant_api_key()
+            self.qdrant_manager = QdrantManager(api_key)
+            # Ensure collection exists
+            self.qdrant_manager.ensure_collection()
+            logger.info("Successfully initialized Qdrant manager")
 
 
     def generate_segment_id(self, repository_id: str, file_path: str, content: str) -> str:
@@ -214,10 +240,20 @@ class AnalysisProcessor:
                 manifest_data,
                 embeddings
             )
+
+            # Initialize Qdrant if needed
+            self.init_qdrant()
+            
+            # Store in Qdrant
+            self.qdrant_manager.store_vector(
+                id=metadata['id'],
+                vector=metadata['vector'],
+                payload=metadata['payload']
+            )            
             
             # Log the complete metadata structure
-            logger.info("Generated metadata structure:")
-            logger.info(json.dumps(metadata, indent=2))
+            # logger.info("Generated metadata structure:")
+            # logger.info(json.dumps(metadata, indent=2))
             
             # Log processing success
             logger.info(f"Successfully processed file {file_info.path}")
