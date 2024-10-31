@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import logging
 import boto3
@@ -6,12 +7,14 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-from openai import OpenAI
+# from openai import OpenAI
 from code_analysis import CodeAnalyzer
 from qdrant_manager import QdrantManager
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+logging.info(f"Python sys.path at startup: {sys.path}")
 
 @dataclass
 class FileInfo:
