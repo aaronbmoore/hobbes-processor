@@ -170,8 +170,9 @@ class AnalysisProcessor:
                             "timestamp": manifest_data.commit_info.timestamp
                         }
                     },
-                    # Add the LLM-generated analysis
-                    "code_analysis": code_analysis["code_analysis"]
+                    "code_analysis": code_analysis.get('code_analysis', {}),
+                    "context": code_analysis.get('context', {}),
+                    "filters": code_analysis.get('search_filters', {})
                 }
             }
 

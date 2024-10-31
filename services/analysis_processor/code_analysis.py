@@ -62,7 +62,43 @@ Generate a JSON object with the following structure:
             "patterns": [string],
             "dependencies": [string]
         }}
+    }},
+    "context": {{
+        "tech_stack": {{
+            "languages": [string],
+            "frameworks": [string],
+            "tools": [string],
+            "confidence": float,
+            "reasoning": [string]
+        }},
+        "architectural_patterns": {{
+            "patterns": [string],
+            "confidence": float,
+            "reasoning": [string]
+        }},
+        "business_domain": {{
+            "domain": string,
+            "subdomain": string,
+            "confidence": float,
+            "reasoning": [string]
+        }},
+        "project_type": {{
+            "type": string,
+            "confidence": float,
+            "reasoning": [string]
+        }}
+    }},
+    "search_filters": {{
+        "primary_language": string,
+        "file_categories": [string],
+        "pattern_types": [string],
+        "tech_stack": [string],
+        "implementation_category": string,
+        "architectural_layer": string,
+        "complexity_level": string
     }}
+
+
 }}"""
 
 class CodeAnalyzer:
