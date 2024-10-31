@@ -65,12 +65,12 @@ jobs:
       - name: Build Analysis processor
         run: |
           mkdir -p dist/analysis-processor
-          cp -r shared dist/analysis-processor/
           cp -r services/analysis_processor/* dist/analysis-processor/
           cd dist/analysis-processor
           pip install -r requirements.txt --target .
           zip -r ../analysis-processor.zip .
 
+#          cp -r shared dist/analysis-processor/
 
       - name: Deploy webhook handler
         run: |

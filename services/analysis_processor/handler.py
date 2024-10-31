@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from openai import OpenAI
 from code_analysis import CodeAnalyzer
-from shared.database.qdrant_manager import QdrantManager
+from services.analysis_processor.qdrant_manager import QdrantManager
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
