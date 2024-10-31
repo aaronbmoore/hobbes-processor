@@ -7,7 +7,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-# from openai import OpenAI
+from openai import OpenAI
 from code_analysis import CodeAnalyzer
 from qdrant_manager import QdrantManager
 
