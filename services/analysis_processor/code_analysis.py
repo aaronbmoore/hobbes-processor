@@ -75,16 +75,13 @@ class CodeAnalyzer:
         """Perform comprehensive code analysis using Claude"""
         try:
             # Get primary code analysis
-            response = self.client.messages.create(
+            response = self.client.completions.create(
                 model="claude-3-haiku-20240307",
-                max_tokens=4096,
-                messages=[{
-                    "role": "user",
-                    "content": self.prompts.get_analysis_prompt(file_path, file_content, repo_url)
-                }]
+                max_tokens_to_sample=4096,
+                prompt=self.prompts.get_analysis_prompt(file_path, file_content, repo_url)
             )
             
-            analysis_result = json.loads(response.content[0].text)
+            analysis_result = json.loads(response.completion)
             logger.info(f"Analysis complete for {file_path}")
             logger.info(f"Analysis results: {json.dumps(analysis_result, indent=2)}")
             
