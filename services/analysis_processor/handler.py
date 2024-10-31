@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import boto3
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -77,17 +78,58 @@ class AnalysisProcessor:
         self.api_key_manager = APIKeyManager()
         self.openai_client = None
 
-    def init_openai(self):
-        try:
-            if not self.openai_client:
-                api_key = self.api_key_manager.get_openai_api_key()
-                self.openai_client = OpenAI(api_key=api_key)
-                logger.info("Successfully initialized OpenAI client")
-        except Exception as e:
-            logger.error(f"Failed to initialize OpenAI client: {str(e)}")
-            raise
+    def generate_segment_id(self, repository_id: str, file_path: str, content: str) -> str:
+        """Generate a unique segment ID based on repository, file path, and content"""
+        content_hash = hashlib.sha256(content.encode()).hexdigest()[:12]
+        return f"{repository_id}:{file_path}:{content_hash}"
+
+    def create_base_metadata(self, 
+                           file_content: str,
+                           file_info: FileInfo, 
+                           manifest_data: ManifestData,
+                           embeddings: List[float]) -> Dict:
+        """Create the initial metadata structure"""
+        segment_id = self.generate_segment_id(
+            manifest_data.repository.id,
+            file_info.path,
+            file_content
+        )
+
+        metadata = {
+            "id": segment_id,
+            "vector": embeddings,
+            "payload": {
+                "segment_info": {
+                    "segment_id": segment_id,
+                    "file_path": file_info.path,
+                    "content_hash": file_info.sha,
+                    "content_length": len(file_content),
+                    "created_at": datetime.utcnow().isoformat()
+                },
+                "file_context": {
+                    "repository_id": manifest_data.repository.id,
+                    "project_id": manifest_data.repository.project_id,
+                    "path": file_info.path,
+                    "git_sha": file_info.sha,
+                    "previous_git_sha": file_info.previous_sha
+                },
+                "git_context": {
+                    "repository_url": manifest_data.repository.url,
+                    "branch": manifest_data.repository.branch,
+                    "commit_info": {
+                        "sha": manifest_data.commit_info.sha,
+                        "message": manifest_data.commit_info.message,
+                        "author": manifest_data.commit_info.author,
+                        "timestamp": manifest_data.commit_info.timestamp
+                    }
+                }
+            }
+        }
+
+        return metadata
 
     def get_embeddings(self, text: str) -> list[float]:
+        """Generate embeddings for text using OpenAI API"""
         try:
             self.init_openai()
             logger.info(f"Generating embeddings for text length: {len(text)}")
@@ -103,20 +145,30 @@ class AnalysisProcessor:
             logger.error(f"Failed to generate embeddings: {str(e)}")
             raise
 
-    def process_file(self, file_content: str, file_info: FileInfo) -> None:
+    def process_file(self, file_content: str, file_info: FileInfo, manifest_data: ManifestData) -> None:
+        """Process a single file and generate embeddings with metadata"""
         try:
             logger.info(f"Processing file: {file_info.path}")
             logger.info(f"Content length: {len(file_content)}")
-            logger.info(f"File SHA: {file_info.sha}")
             
+            # Generate embeddings
             embeddings = self.get_embeddings(file_content)
             
-            # Log successful processing
+            # Create metadata structure
+            metadata = self.create_base_metadata(
+                file_content,
+                file_info,
+                manifest_data,
+                embeddings
+            )
+            
+            # Log the complete metadata structure
+            logger.info("Generated metadata structure:")
+            logger.info(json.dumps(metadata, indent=2))
+            
+            # Log processing success
             logger.info(f"Successfully processed file {file_info.path}")
-            logger.info("Processing details:")
-            logger.info(f"  - File path: {file_info.path}")
-            logger.info(f"  - Embedding dimensions: {len(embeddings)}")
-            logger.info(f"  - Processing time: {datetime.utcnow().isoformat()}")
+            logger.info(f"Segment ID: {metadata['id']}")
 
         except Exception as e:
             logger.error(f"Error processing file {file_info.path}: {str(e)}")
@@ -153,7 +205,7 @@ class AnalysisProcessor:
                     )
                     file_content = response['Body'].read().decode('utf-8')
                     
-                    self.process_file(file_content, file_info)
+                    self.process_file(file_content, file_info, manifest_data)
                     processed_files += 1
                     
                 except Exception as e:
