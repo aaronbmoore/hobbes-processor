@@ -55,43 +55,43 @@ class QdrantHttpClient:
     #         logger.error(f"Error ensuring collection: {str(e)}")
     #         raise
 
-def store_vector(self, id: str, vector: List[float], payload: Dict[str, Any]) -> bool:
-    """Store a vector with its metadata"""
-    try:
-        points_payload = {
-            "points": [
-                {
-                    "id": id,
-                    "vector": vector,
-                    "payload": payload
-                }
-            ]
-        }
+    def store_vector(self, id: str, vector: List[float], payload: Dict[str, Any]) -> bool:
+        """Store a vector with its metadata"""
+        try:
+            points_payload = {
+                "points": [
+                    {
+                        "id": id,
+                        "vector": vector,
+                        "payload": payload
+                    }
+                ]
+            }
 
-        # Debug log the exact payload
-        logger.info("Sending payload to Qdrant:")
-        logger.info(f"Points payload structure: {json.dumps(points_payload, indent=2)}")
-        
-        url = f"{self.base_url}/collections/{self.collection_name}/points"
-        logger.info(f"Sending request to URL: {url}")
-        logger.info(f"Headers: {self.headers}")
+            # Debug log the exact payload
+            logger.info("Sending payload to Qdrant:")
+            logger.info(f"Points payload structure: {json.dumps(points_payload, indent=2)}")
+            
+            url = f"{self.base_url}/collections/{self.collection_name}/points"
+            logger.info(f"Sending request to URL: {url}")
+            logger.info(f"Headers: {self.headers}")
 
-        response = requests.put(
-            url,
-            headers=self.headers,
-            json=points_payload
-        )
+            response = requests.put(
+                url,
+                headers=self.headers,
+                json=points_payload
+            )
 
-        logger.info(f"Response status code: {response.status_code}")
-        logger.info(f"Response content: {response.text}")
+            logger.info(f"Response status code: {response.status_code}")
+            logger.info(f"Response content: {response.text}")
 
-        if response.status_code == 200:
-            logger.info(f"Successfully stored vector for id: {id}")
-            return True
-        else:
-            logger.error(f"Failed to store vector. Status: {response.status_code}, Response: {response.text}")
-            return False
+            if response.status_code == 200:
+                logger.info(f"Successfully stored vector for id: {id}")
+                return True
+            else:
+                logger.error(f"Failed to store vector. Status: {response.status_code}, Response: {response.text}")
+                return False
 
-    except Exception as e:
-        logger.error(f"Error storing vector: {str(e)}")
-        raise
+        except Exception as e:
+            logger.error(f"Error storing vector: {str(e)}")
+            raise
