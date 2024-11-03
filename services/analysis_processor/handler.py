@@ -113,7 +113,9 @@ class AnalysisProcessor:
         self.api_key_manager = APIKeyManager()
         self.openai_client = None
         self.code_analyzer = None
-        self.qdrant_manager = None
+        # self.qdrant_manager = None
+        self.qdrant_client = None
+
         logger.info(f"Initialized AnalysisProcessor with bucket: {self.processing_bucket}")
 
     def init_openai(self):
