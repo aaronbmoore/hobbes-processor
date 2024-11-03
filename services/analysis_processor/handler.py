@@ -4,6 +4,7 @@ import json
 import logging
 import boto3
 import hashlib
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -158,9 +159,11 @@ class AnalysisProcessor:
 
 
     def generate_segment_id(self, repository_id: str, file_path: str, content: str) -> str:
-        """Generate a unique segment ID based on repository, file path, and content"""
-        content_hash = hashlib.sha256(content.encode()).hexdigest()[:12]
-        return f"{repository_id}:{file_path}:{content_hash}"
+        """Generate a UUID for Qdrant based on our content"""
+        # Generate a deterministic UUID based on our content
+        namespace_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, 'hobbes.code.analysis')
+        content_uuid = uuid.uuid5(namespace_uuid, f"{repository_id}:{file_path}:{content}")
+        return str(content_uuid)
 
     def create_base_metadata(self, 
                            file_content: str,
@@ -174,6 +177,10 @@ class AnalysisProcessor:
                 file_info.path,
                 file_content
             )
+
+            # Store our original composite ID in the metadata
+            original_id = f"{manifest_data.repository.id}:{file_info.path}:{hashlib.sha256(file_content.encode()).hexdigest()[:12]}"
+
 
             # Initialize code analyzer if needed
             self.init_code_analyzer()
@@ -190,7 +197,7 @@ class AnalysisProcessor:
                 "vector": embeddings,
                 "payload": {
                     "segment_info": {
-                        "segment_id": segment_id,
+                        "segment_id": original_id,
                         "file_path": file_info.path,
                         "content_hash": file_info.sha,
                         "content_length": len(file_content),
