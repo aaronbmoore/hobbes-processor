@@ -153,8 +153,8 @@ class AnalysisProcessor:
             api_key = self.api_key_manager.get_qdrant_api_key()
             self.qdrant_client = QdrantHttpClient(api_key=api_key)
             # Ensure collection exists
-            self.qdrant_client.ensure_collection()
-            logger.info("Successfully initialized Qdrant client")
+            # self.qdrant_client.ensure_collection()
+            # logger.info("Successfully initialized Qdrant client")
 
 
     def generate_segment_id(self, repository_id: str, file_path: str, content: str) -> str:
